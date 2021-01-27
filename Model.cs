@@ -10,7 +10,7 @@ namespace PROdiction
 {
     public class Model
     {
-        const string DLL_PATH = "C:\\test\\libkeras2cpp.dll";
+        const string DLL_PATH = "libkeras2cpp.dll";
 
         [DllImport(@DLL_PATH, SetLastError=true, CharSet = CharSet.Ansi)]
         private static extern IntPtr load_model([MarshalAs(UnmanagedType.LPStr)] string fileName);
