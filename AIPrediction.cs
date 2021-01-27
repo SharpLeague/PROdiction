@@ -185,7 +185,7 @@ namespace PROdiction
                     }
                 }
 
-                foreach (var path in lastNewPathesEnumerable.Reverse().Take(20))
+                foreach (var path in lastNewPathesEnumerable.Reverse().Take(10))
                 {
                     PutHistoryPath(values, path);
                 }
@@ -203,7 +203,7 @@ namespace PROdiction
             {
             }
 
-            for (var i = 0; i < 20 - amountOfPaths; i++)
+            for (var i = 0; i < 10 - amountOfPaths; i++)
             {
                 values.Add(0.0f);
                 values.Add(0.0f);
@@ -329,11 +329,12 @@ namespace PROdiction
 
     public class AIPrediction
     {
-        private static readonly Model CirclePathModel = Model.Load("C://test/keras2cpp.0.success_path.model");
-        private static readonly Model CirclePositionModel = Model.Load("C://test/keras2cpp.0.success_position.model");
+        private static readonly Model CirclePathModel = Model.Load("keras2cpp_0_success_path");
+        private static readonly Model CirclePositionModel = Model.Load("keras2cpp_0_success_position");
+        
+        private static readonly Model LinePathModel = Model.Load("keras2cpp_1_success_path");
+        private static readonly Model LinePositionModel = Model.Load("keras2cpp_1_success_position");
 
-        private static readonly Model LinePathModel = Model.Load("C://test/keras2cpp.1.success_path.model");
-        private static readonly Model LinePositionModel = Model.Load("C://test/keras2cpp.1.success_position.model");
 
         [DllImport("libkeras2cpp.dll", SetLastError = true)]
         private static extern uint ReadMXCSR();
@@ -353,7 +354,7 @@ namespace PROdiction
 
             var values = aiInput.GetValues();
 
-            Console.WriteLine("Inputs: " + values.Length);
+            // Console.WriteLine("Inputs: " + values.Length);
             //
             // for (var i = 0; i < values.Length; i++)
             // {
