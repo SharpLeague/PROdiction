@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using LeagueSharp;
@@ -91,19 +92,6 @@ namespace PROdiction
                 ? 0.0f
                 : HeroManager.Player.Direction.To2D().AngleBetween((secondElement - firstElement).To2D()));
             target.Add((float) (Game.Time - @event.GameTime)); // time ago
-            target.Add(@event.Path.Length > 0 ? input.Unit.Distance(@event.Path[0]) : 0.0f);
-            if (lastElement.IsZero)
-            {
-                target.Add(input.Unit.ServerPosition.X - lastElement.X);
-                target.Add(input.Unit.ServerPosition.Y - lastElement.Y);
-            }
-            else
-            {
-                target.Add(0.0f);
-                target.Add(0.0f);
-            }
-
-            target.Add(input.Unit.ServerPosition.Distance(HeroManager.Player.ServerPosition));
         }
 
         private void PutBuffData(ICollection<float> target, BuffInstance[] buffs)
@@ -135,17 +123,19 @@ namespace PROdiction
             // values.Add(ChampionToId[Source.ChampionName]); // source champ
             // values.Add(ChampionToId[Target.ChampionName]); // target champ
             // values.Add(SourceSpellSlot); // source spell slot
+            /*
             values.Add(input.Unit.Direction.X); // target direction x
             values.Add(input.Unit.Direction.Y); // target direction y
             values.Add(HeroManager.Player.Direction.X); // source direction x
             values.Add(HeroManager.Player.Direction.Y); // source direction y
+            */
             values.Add(delay); // delay
             values.Add(speed); // speed
             values.Add(delay * speed); // move area
             values.Add(input.Unit.IsWindingUp ? 1.0f : 0.0f);
             values.Add(input.Unit.IsMelee ? 1.0f : 0.0f);
             values.Add(input.Unit.IsDashing() ? 1.0f : 0.0f); // is dash
-            values.Add(input.Unit.AttackRange);
+            // values.Add(input.Unit.AttackRange);
             values.Add(input.Unit.Health / input.Unit.MaxHealth); // health
             values.Add(input.Unit.MaxHealth);
             values.Add(input.Unit.Direction.To2D()
@@ -205,10 +195,6 @@ namespace PROdiction
 
             for (var i = 0; i < 10 - amountOfPaths; i++)
             {
-                values.Add(0.0f);
-                values.Add(0.0f);
-                values.Add(0.0f);
-                values.Add(0.0f);
                 values.Add(0.0f);
                 values.Add(0.0f);
                 values.Add(0.0f);
@@ -335,13 +321,6 @@ namespace PROdiction
         private static readonly Model LinePathModel = Model.Load("keras2cpp_1_success_path");
         private static readonly Model LinePositionModel = Model.Load("keras2cpp_1_success_position");
 
-
-        [DllImport("libkeras2cpp.dll", SetLastError = true)]
-        private static extern uint ReadMXCSR();
-
-        [DllImport("libkeras2cpp.dll", SetLastError = true)]
-        private static extern void SetMXCSR(uint value);
-
         public static AIPredictionOutput GetPrediction(PredictionInput input, Vector3 castPosition)
         {
             var delay = input.Delay + input.From.Distance(castPosition) / input.Speed;
@@ -354,7 +333,7 @@ namespace PROdiction
 
             var values = aiInput.GetValues();
 
-            // Console.WriteLine("Inputs: " + values.Length);
+            Console.WriteLine("Inputs: " + values.Length);
             //
             // for (var i = 0; i < values.Length; i++)
             // {
@@ -362,16 +341,14 @@ namespace PROdiction
             // }
 
             // Console.WriteLine();
-
+            
             var outputPath =
                 (input.Type == SkillshotType.SkillshotLine ? LinePathModel : CirclePathModel).Predict(values);
             var outputPosition =
                 (input.Type == SkillshotType.SkillshotLine ? LinePositionModel : CirclePositionModel).Predict(values);
-
+            
             Console.WriteLine(outputPath[0] + " -- " + outputPosition[0] + " || " + delay);
-
-            SetMXCSR(0x1f80);
-
+            
             return new AIPredictionOutput
             {
                 HitchancePath = outputPath[0],
