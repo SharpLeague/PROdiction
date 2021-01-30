@@ -7,6 +7,7 @@ using LeagueSharp;
 using LeagueSharp.Common;
 using PROdiction;
 using SharpDX;
+using Collision = LeagueSharp.Common.Collision;
 
 namespace PROdiction
 {
@@ -109,9 +110,22 @@ namespace PROdiction
             }
         }
 
+        public float GetDelay()
+        {
+            return input.Delay + input.From.Distance(CastPosition) / input.Speed + Game.Ping / 1000.0f;
+        }
+
+        public Vector3 PathDirection(Vector3[] path)
+        {
+            var first = path.FirstOrDefault();
+            var second = path.Skip(1).FirstOrDefault();
+            
+            return (second - first).Normalized();
+        }
+
         public float[] GetValues()
         {
-            var delay = input.Delay + input.From.Distance(CastPosition) / input.Speed + Game.Ping / 1000.0f;
+            var delay = GetDelay();
 
             var speed = SpeedFromVelocity(input.Unit.Velocity);
             if (speed == 0.0)
@@ -120,22 +134,12 @@ namespace PROdiction
             }
 
             var values = new List<float>();
-            // values.Add(ChampionToId[Source.ChampionName]); // source champ
-            // values.Add(ChampionToId[Target.ChampionName]); // target champ
-            // values.Add(SourceSpellSlot); // source spell slot
-            /*
-            values.Add(input.Unit.Direction.X); // target direction x
-            values.Add(input.Unit.Direction.Y); // target direction y
-            values.Add(HeroManager.Player.Direction.X); // source direction x
-            values.Add(HeroManager.Player.Direction.Y); // source direction y
-            */
             values.Add(delay); // delay
             values.Add(speed); // speed
             values.Add(delay * speed); // move area
             values.Add(input.Unit.IsWindingUp ? 1.0f : 0.0f);
             values.Add(input.Unit.IsMelee ? 1.0f : 0.0f);
             values.Add(input.Unit.IsDashing() ? 1.0f : 0.0f); // is dash
-            // values.Add(input.Unit.AttackRange);
             values.Add(input.Unit.Health / input.Unit.MaxHealth); // health
             values.Add(input.Unit.MaxHealth);
             values.Add(input.Unit.Direction.To2D()
@@ -157,6 +161,8 @@ namespace PROdiction
 
             var clicksPerSecond = 0;
             var clicksLen = 0.0f;
+            var clicks2sLen = 0.0f;
+            var clicks2sAngle = 0.0f;
 
             try
             {
@@ -166,6 +172,8 @@ namespace PROdiction
 
                 IEnumerable<OnNewPathEvent> lastNewPathesEnumerable = lastPathes;
 
+                var lastPath = new Vector3[0];
+                
                 foreach (var path in lastNewPathesEnumerable.Reverse())
                 {
                     if (Game.Time - path.GameTime < 1.0)
@@ -173,6 +181,19 @@ namespace PROdiction
                         clicksPerSecond += 1;
                         clicksLen += Vector2.Zero.Distance(path.Path.LastOrDefault().To2D());
                     }
+                    
+                    if (Game.Time - path.GameTime < 2.0)
+                    {
+                        if (lastPath.Length > 0)
+                        {
+                            clicks2sLen += lastPath.LastOrDefault().Distance(path.Path.LastOrDefault());
+                            
+                            clicks2sAngle += PathDirection(lastPath).To2D()
+                                .AngleBetween(PathDirection(path.Path).To2D());
+                        }
+                    }
+
+                    lastPath = path.Path;
                 }
 
                 foreach (var path in lastNewPathesEnumerable.Reverse().Take(10))
@@ -255,6 +276,11 @@ namespace PROdiction
             values.Add(0.0f); // min max speed diff
             // values.AddRange(GetClosestWall(input.Unit.ServerPosition, HeroManager.Player, (Obj_AI_Hero) input.Unit));
 
+            values.Add(clicks2sAngle); // angle_between_2s_pathes_sum
+            values.Add(clicks2sLen); // last_2s_click_len
+            
+            // Console.WriteLine("Angle: " + clicks2sAngle + " Len: " + clicks2sLen + " PerSecond: " + clicksPerSecond);
+
             values.Add(((Obj_AI_Hero) input.Unit).GetSpellSlot("summonerflash") != SpellSlot.Unknown
                 ? 1.0f
                 : 0.0f); // has_flash
@@ -268,7 +294,7 @@ namespace PROdiction
                 .Where(champion => champion.ServerPosition.Distance(input.Unit.ServerPosition) < 1000.0f).ToList();
 
             var targetAllies = champions.Where(champion => champion.Team == input.Unit.Team
-                                                     && input.Unit.NetworkId != champion.NetworkId).ToList();
+                                                           && input.Unit.NetworkId != champion.NetworkId).ToList();
             values.Add(targetAllies.Count);
 
             var targetEnemies = champions.Where(champion =>
@@ -307,33 +333,107 @@ namespace PROdiction
         }
     }
 
-    public class AIPredictionOutput
-    {
-        public float HitchancePath;
-        public float HitchancePosition;
-    }
-
     public class AIPrediction
     {
         private static readonly Model CirclePathModel = Model.Load("keras2cpp_0_success_path");
         private static readonly Model CirclePositionModel = Model.Load("keras2cpp_0_success_position");
-        
+
         private static readonly Model LinePathModel = Model.Load("keras2cpp_1_success_path");
         private static readonly Model LinePositionModel = Model.Load("keras2cpp_1_success_position");
 
-        public static AIPredictionOutput GetPrediction(PredictionInput input, Vector3 castPosition)
+        private static Vector2 PositionOnPath(Obj_AI_Hero hero, float delay)
         {
-            var delay = input.Delay + input.From.Distance(castPosition) / input.Speed;
+            var distance = delay * Prediction.SpeedFromVelocity(hero);
+            var path = hero.GetWaypoints();
 
-            var aiInput = new AIPredictionInput
+            if (distance > path.PathLength())
             {
-                input = input,
-                CastPosition = castPosition
-            };
+                return path.LastOrDefault();
+            }
 
-            var values = aiInput.GetValues();
+            return path.CutPath(distance).FirstOrDefault();
+        }
 
-            Console.WriteLine("Inputs: " + values.Length);
+        static Vector3 GetPositionOnPath(PredictionInput input, List<Vector2> path, float speed = -1)
+        {
+            speed = (Math.Abs(speed - (-1)) < float.Epsilon) ? Prediction.SpeedFromVelocity(input.Unit) : speed;
+
+            var pLength = path.PathLength();
+
+            if (pLength < 5)
+            {
+                return input.Unit.ServerPosition;
+            }
+
+            var realRadius = input.Radius + input.Unit.BoundingRadius;
+            
+            //Skillshots with only a delay
+            var tDistance = input.Delay * speed;
+            if (pLength >= tDistance && Math.Abs(input.Speed - float.MaxValue) < float.Epsilon)
+            {
+                for (var i = 0; i < path.Count - 1; i++)
+                {
+                    var a = path[i];
+                    var b = path[i + 1];
+                    var d = a.Distance(b);
+
+                    if (d >= tDistance)
+                    {
+                        var direction = (b - a).Normalized();
+
+                        var cp = a + direction * tDistance;
+                        
+                        return cp.To3D();
+                    }
+
+                    tDistance -= d;
+                }
+            }
+
+            //Skillshot with a delay and speed.
+            if (pLength >= tDistance && Math.Abs(input.Speed - float.MaxValue) > float.Epsilon)
+            {
+                var d = tDistance;
+                if (input.Type == SkillshotType.SkillshotLine || input.Type == SkillshotType.SkillshotCone)
+                {
+                    if (input.From.Distance(input.Unit.ServerPosition, true) < 200 * 200)
+                    {
+                        d = input.Delay * speed;
+                    }
+                }
+
+                path = path.CutPath(d);
+                var tT = 0f;
+                for (var i = 0; i < path.Count - 1; i++)
+                {
+                    var a = path[i];
+                    var b = path[i + 1];
+                    var tB = a.Distance(b) / speed;
+                    var direction = (b - a).Normalized();
+                    a = a - speed * tT * direction;
+                    var sol = Geometry.VectorMovementCollision(a, b, speed, input.From.To2D(), input.Speed, tT);
+                    var t = (float) sol[0];
+                    var pos = (Vector2) sol[1];
+
+                    if (pos.IsValid() && t >= tT && t <= tT + tB)
+                    {
+                        if (pos.Distance(b, true) < 20)
+                            break;
+
+                        return pos.To3D();
+                    }
+
+                    tT += tB;
+                }
+            }
+
+            var position = path.Last();
+            return position.To3D();
+        }
+
+        public static PredictionOutput GetPrediction(PredictionInput input)
+        {
+            // Console.WriteLine("Inputs: " + values.Length);
             //
             // for (var i = 0; i < values.Length; i++)
             // {
@@ -342,18 +442,67 @@ namespace PROdiction
 
             // Console.WriteLine();
             
-            var outputPath =
-                (input.Type == SkillshotType.SkillshotLine ? LinePathModel : CirclePathModel).Predict(values);
-            var outputPosition =
-                (input.Type == SkillshotType.SkillshotLine ? LinePositionModel : CirclePositionModel).Predict(values);
-            
-            Console.WriteLine(outputPath[0] + " -- " + outputPosition[0] + " || " + delay);
-            
-            return new AIPredictionOutput
+            var positionOnPath = GetPositionOnPath(input, input.Unit.GetWaypoints(), Prediction.SpeedFromVelocity(input.Unit));
+
+            var pathInput = new AIPredictionInput
             {
-                HitchancePath = outputPath[0],
-                HitchancePosition = outputPosition[0]
+                input = input,
+                CastPosition = positionOnPath
             };
+            
+            var positionInput = new AIPredictionInput
+            {
+                input = input,
+                CastPosition = input.Unit.ServerPosition
+            };
+
+            var outputPath =
+                (input.Type == SkillshotType.SkillshotLine ? LinePathModel : CirclePathModel).Predict(
+                    pathInput.GetValues());
+            var outputPosition =
+                (input.Type == SkillshotType.SkillshotLine ? LinePositionModel : CirclePositionModel).Predict(
+                    positionInput.GetValues());
+
+            Console.WriteLine(outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
+
+            float hitchance;
+            Vector3 castPosition = Vector3.Zero;
+            if (outputPosition[0] > outputPath[0])
+            {
+                castPosition = input.Unit.ServerPosition;
+                hitchance = outputPosition[0];
+            }
+            else
+            {
+                castPosition = positionOnPath;
+                hitchance = outputPath[0];
+            }
+
+            var output = new PredictionOutput
+            {
+                HitchanceFloat = hitchance,
+                CastPosition = castPosition
+            };
+
+            if (input.Collision)
+            {
+                var maxCollisions = 0;
+                if (HeroManager.Player.ChampionName == "Lux")
+                {
+                    maxCollisions = 1;
+                }
+
+                var positions = new List<Vector3> {output.CastPosition};
+                output.CollisionObjects = Collision.GetCollision(positions, input);
+                output.CollisionObjects.RemoveAll(x => x.NetworkId == input.Unit.NetworkId);
+                if (output.CollisionObjects.Count > maxCollisions)
+                {
+                    output.HitchanceFloat = 0.0f;
+                    output.Hitchance = HitChance.Collision;
+                }
+            }
+
+            return output;
         }
     }
 }
