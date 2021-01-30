@@ -370,7 +370,7 @@ namespace PROdiction
             var realRadius = input.Radius + input.Unit.BoundingRadius;
 
             //Skillshots with only a delay
-            var tDistance = input.Delay * speed;
+            var tDistance = input.Delay * speed - (input.Radius / 2);
             if (pLength >= tDistance && Math.Abs(input.Speed - float.MaxValue) < float.Epsilon)
             {
                 for (var i = 0; i < path.Count - 1; i++)
@@ -469,7 +469,7 @@ namespace PROdiction
             Console.WriteLine(input.Slot + " ! " + outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
 
             float hitchance;
-            Vector3 castPosition = Vector3.Zero;
+            Vector3 castPosition;
             if (outputPosition[0] > outputPath[0])
             {
                 castPosition = input.Unit.ServerPosition;
