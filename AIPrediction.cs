@@ -119,7 +119,7 @@ namespace PROdiction
         {
             var first = path.FirstOrDefault();
             var second = path.Skip(1).FirstOrDefault();
-            
+
             return (second - first).Normalized();
         }
 
@@ -173,7 +173,7 @@ namespace PROdiction
                 IEnumerable<OnNewPathEvent> lastNewPathesEnumerable = lastPathes;
 
                 var lastPath = new Vector3[0];
-                
+
                 foreach (var path in lastNewPathesEnumerable.Reverse())
                 {
                     if (Game.Time - path.GameTime < 1.0)
@@ -181,13 +181,13 @@ namespace PROdiction
                         clicksPerSecond += 1;
                         clicksLen += Vector2.Zero.Distance(path.Path.LastOrDefault().To2D());
                     }
-                    
+
                     if (Game.Time - path.GameTime < 2.0)
                     {
                         if (lastPath.Length > 0)
                         {
                             clicks2sLen += lastPath.LastOrDefault().Distance(path.Path.LastOrDefault());
-                            
+
                             clicks2sAngle += PathDirection(lastPath).To2D()
                                 .AngleBetween(PathDirection(path.Path).To2D());
                         }
@@ -270,6 +270,8 @@ namespace PROdiction
 
             values.Add(input.Unit.BoundingRadius);
 
+            values.Add((float) ChampionSuccessRatio.GetChampionSuccessRatio(((Obj_AI_Hero) input.Unit).ChampionName));
+
             values.Add(clicksLen);
 
             values.Add(SpellList.GetDangerLevel(((Obj_AI_Hero) input.Unit).ChampionName, input.Slot)); // danger level
@@ -278,7 +280,7 @@ namespace PROdiction
 
             values.Add(clicks2sAngle); // angle_between_2s_pathes_sum
             values.Add(clicks2sLen); // last_2s_click_len
-            
+
             // Console.WriteLine("Angle: " + clicks2sAngle + " Len: " + clicks2sLen + " PerSecond: " + clicksPerSecond);
 
             values.Add(((Obj_AI_Hero) input.Unit).GetSpellSlot("summonerflash") != SpellSlot.Unknown
@@ -366,7 +368,7 @@ namespace PROdiction
             }
 
             var realRadius = input.Radius + input.Unit.BoundingRadius;
-            
+
             //Skillshots with only a delay
             var tDistance = input.Delay * speed;
             if (pLength >= tDistance && Math.Abs(input.Speed - float.MaxValue) < float.Epsilon)
@@ -382,7 +384,7 @@ namespace PROdiction
                         var direction = (b - a).Normalized();
 
                         var cp = a + direction * tDistance;
-                        
+
                         return cp.To3D();
                     }
 
@@ -441,15 +443,16 @@ namespace PROdiction
             // }
 
             // Console.WriteLine();
-            
-            var positionOnPath = GetPositionOnPath(input, input.Unit.GetWaypoints(), Prediction.SpeedFromVelocity(input.Unit));
+
+            var positionOnPath =
+                GetPositionOnPath(input, input.Unit.GetWaypoints(), Prediction.SpeedFromVelocity(input.Unit));
 
             var pathInput = new AIPredictionInput
             {
                 input = input,
                 CastPosition = positionOnPath
             };
-            
+
             var positionInput = new AIPredictionInput
             {
                 input = input,
@@ -463,7 +466,7 @@ namespace PROdiction
                 (input.Type == SkillshotType.SkillshotLine ? LinePositionModel : CirclePositionModel).Predict(
                     positionInput.GetValues());
 
-            Console.WriteLine(outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
+            Console.WriteLine(input.Slot + " ! " + outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
 
             float hitchance;
             Vector3 castPosition = Vector3.Zero;

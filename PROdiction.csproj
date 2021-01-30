@@ -72,6 +72,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AIPrediction.cs" />
+    <Compile Include="ChampionSuccessRatio.cs" />
     <Compile Include="DashList.cs" />
     <Compile Include="Model.cs" />
     <Compile Include="Pathes.cs" />
