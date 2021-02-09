@@ -440,9 +440,16 @@ namespace PROdiction
             return position.To3D();
         }
 
+        private static Dictionary<SpellSlot, MinMaxValues> MIN_MAX = new Dictionary<SpellSlot, MinMaxValues>();
+        
         public static PredictionOutput GetPrediction(PredictionInput input)
         {
-            //
+            MinMaxValues values;
+            if (!MIN_MAX.TryGetValue(input.Slot, out values))
+            {
+                values = new MinMaxValues();
+                MIN_MAX[input.Slot] = values;
+            }
 
             var positionOnPath =
                 GetPositionOnPath(input, input.Unit.GetWaypoints(), Prediction.SpeedFromVelocity(input.Unit));
@@ -476,9 +483,7 @@ namespace PROdiction
             var outputPosition =
                 (input.Type == SkillshotType.SkillshotLine ? LinePositionModel : CirclePositionModel).Predict(
                     positionInput.GetValues());
-
-            Console.WriteLine(input.Slot + " ! " + outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
-
+            
             float hitchance;
             Vector3 castPosition;
             if (outputPosition[0] > outputPath[0])
@@ -492,11 +497,15 @@ namespace PROdiction
                 hitchance = outputPath[0];
             }
 
+            var normalized = values.Normalized(hitchance);
+            
             var output = new PredictionOutput
             {
-                HitchanceFloat = hitchance,
+                HitchanceFloat = normalized,
                 CastPosition = castPosition
             };
+
+            Console.WriteLine(input.Slot + " == " + normalized + " ! " + outputPath[0] + " -- " + outputPosition[0] + " || " + pathInput.GetDelay());
 
             if (input.Collision)
             {

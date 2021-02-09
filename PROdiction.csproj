@@ -74,6 +74,7 @@
     <Compile Include="AIPrediction.cs" />
     <Compile Include="ChampionSuccessRatio.cs" />
     <Compile Include="DashList.cs" />
+    <Compile Include="MinMaxValues.cs" />
     <Compile Include="Model.cs" />
     <Compile Include="Pathes.cs" />
     <Compile Include="Program.cs" />
