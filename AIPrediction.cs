@@ -78,7 +78,7 @@ namespace PROdiction
             }.Distance(realVelocity);
         }
 
-        private void PutHistoryPath(ICollection<float> target, OnNewPathEvent @event)
+        private void PutHistoryPath(ICollection<float> target, OnNewPathEvent @event, Obj_AI_Hero targetHero)
         {
             var lastElement = @event.Path.LastOrDefault();
             var firstElement = @event.Path.FirstOrDefault();
@@ -93,6 +93,8 @@ namespace PROdiction
                 ? 0.0f
                 : HeroManager.Player.Direction.To2D().AngleBetween((secondElement - firstElement).To2D()));
             target.Add((float) (Game.Time - @event.GameTime)); // time ago
+            target.Add(targetHero.ServerPosition.X - lastElement.X);
+            target.Add(targetHero.ServerPosition.Y - lastElement.Y);
         }
 
         private void PutBuffData(ICollection<float> target, BuffInstance[] buffs)
@@ -127,16 +129,16 @@ namespace PROdiction
         {
             var delay = GetDelay();
 
-            var speed = SpeedFromVelocity(input.Unit.Velocity);
-            if (speed == 0.0)
+            var speedForMoveArea = SpeedFromVelocity(input.Unit.Velocity);
+            if (speedForMoveArea == 0.0)
             {
-                speed = input.Unit.MoveSpeed;
+                speedForMoveArea = input.Unit.MoveSpeed;
             }
 
             var values = new List<float>();
             values.Add(delay); // delay
-            values.Add(speed); // speed
-            values.Add(delay * speed); // move area
+            values.Add(SpeedFromVelocity(input.Unit.Velocity)); // speed
+            values.Add(delay * speedForMoveArea); // move area
             values.Add(input.Unit.IsWindingUp ? 1.0f : 0.0f);
             values.Add(input.Unit.IsMelee ? 1.0f : 0.0f);
             values.Add(input.Unit.IsDashing() ? 1.0f : 0.0f); // is dash
@@ -144,7 +146,7 @@ namespace PROdiction
             values.Add(input.Unit.MaxHealth);
             values.Add(input.Unit.Direction.To2D()
                 .AngleBetween(HeroManager.Player.Direction.To2D())); // angle_between_last_path_and_position
-            values.Add(HeroManager.Player.ServerPosition.Distance(input.Unit.ServerPosition));
+            // values.Add(HeroManager.Player.ServerPosition.Distance(input.Unit.ServerPosition));
 
             // PutItemData(values, Target.InventoryItems);
 
@@ -179,7 +181,10 @@ namespace PROdiction
                     if (Game.Time - path.GameTime < 1.0)
                     {
                         clicksPerSecond += 1;
-                        clicksLen += Vector2.Zero.Distance(path.Path.LastOrDefault().To2D());
+                        var lastVector = path.Path.LastOrDefault();
+                        var endOffset = input.Unit.ServerPosition - lastVector;
+                        
+                        clicksLen += Vector2.Zero.Distance(endOffset.To2D());
                     }
 
                     if (Game.Time - path.GameTime < 2.0)
@@ -198,7 +203,7 @@ namespace PROdiction
 
                 foreach (var path in lastNewPathesEnumerable.Reverse().Take(10))
                 {
-                    PutHistoryPath(values, path);
+                    PutHistoryPath(values, path, (Obj_AI_Hero) input.Unit);
                 }
 
                 if (clicksPerSecond > 0)
@@ -221,9 +226,11 @@ namespace PROdiction
                 values.Add(0.0f);
                 values.Add(0.0f);
                 values.Add(0.0f);
+                values.Add(0.0f);
+                values.Add(0.0f);
             }
 
-            values.Add(input.Range);
+            // values.Add(input.Range);
             values.Add(input.Radius);
             values.Add(input.Type == SkillshotType.SkillshotLine ? 1.0f : 0.0f);
 
@@ -435,14 +442,7 @@ namespace PROdiction
 
         public static PredictionOutput GetPrediction(PredictionInput input)
         {
-            // Console.WriteLine("Inputs: " + values.Length);
             //
-            // for (var i = 0; i < values.Length; i++)
-            // {
-            //     Console.Write(values[i] + ", ");
-            // }
-
-            // Console.WriteLine();
 
             var positionOnPath =
                 GetPositionOnPath(input, input.Unit.GetWaypoints(), Prediction.SpeedFromVelocity(input.Unit));
@@ -452,6 +452,17 @@ namespace PROdiction
                 input = input,
                 CastPosition = positionOnPath
             };
+
+            // var values = pathInput.GetValues();
+            // Console.WriteLine("Inputs: " + values.Length);
+            //
+            // for (var i = 0; i < values.Length; i++)
+            // {
+            //     Console.Write(values[i] + ", ");
+            // }
+            //
+            // Console.WriteLine();
+
 
             var positionInput = new AIPredictionInput
             {
