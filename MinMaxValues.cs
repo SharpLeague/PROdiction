@@ -15,7 +15,7 @@ namespace PROdiction
     public class MinMaxValues
     {
         private List<ValueTime> Values { get; set; } = new List<ValueTime>();
-        private float TIME_DIFFRENCE = 60.0f;
+        private readonly float TIME_DIFFRENCE = 30.0f;
 
         private float Minimum
         {
@@ -40,7 +40,7 @@ namespace PROdiction
             {
                 if (Values.Count == 0)
                 {
-                    return 0.0f;
+                    return 0.13f;
                 }
                 
                 var gameTime = Game.Time;
@@ -72,16 +72,18 @@ namespace PROdiction
         {
             Record(value);
             RemoveOld();
-
-            if (Values.Count < 10)
-            {
-                return 0.0f;
-            }
-
+            
             var min = Minimum;
             var max = Maximum;
 
-            return (value - min) / (max - min);
+            var normalized = (value - min) / (max - min);
+            
+            if (Values.Count < 8)
+            {
+                return (float) Math.Min(0.25, normalized);
+            }
+
+            return normalized;
         }
     }
 }
