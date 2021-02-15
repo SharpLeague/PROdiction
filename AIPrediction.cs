@@ -130,23 +130,7 @@ namespace PROdiction
             values.Add(minimumHealth?.Health ?? 2000.0f);
 
             values.Add(DashList.IsDashAvailable((Obj_AI_Hero) input.Unit, delay) ? 1.0f : 0.0f);
-
-            // var rangeToAllyTurret = ObjectManager.Get<Obj_AI_Turret>()
-            //     .Where(turret => turret.Team == input.Unit.Team && turret.Health > 0 &&
-            //                      input.Unit.ServerPosition.Distance(turret.Position) < 1000)
-            //     .Select(turret => input.Unit.ServerPosition.Distance(turret.Position))
-            //     .MinOrDefault(turretDistance => turretDistance);
-            // // values.Add(rangeToAllyTurret == 0 ? 2000.0f : rangeToAllyTurret);
-            // values.Add(2000.0f);
-            //
-            // var rangeToEnemyTurret = ObjectManager.Get<Obj_AI_Turret>()
-            //     .Where(turret => turret.Team != input.Unit.Team && turret.Health > 0 &&
-            //                      input.Unit.ServerPosition.Distance(turret.Position) < 1000.0)
-            //     .Select(turret => input.Unit.ServerPosition.Distance(turret.Position))
-            //     .MinOrDefault(turretDistance => turretDistance);
-            // // values.Add(rangeToEnemyTurret == 0 ? 2000.0f : rangeToEnemyTurret);
-            // values.Add(2000.0f);
-
+            
             PutEnemyStatistics(values);
             
             values.Add(input.Unit.BoundingRadius);
@@ -154,9 +138,6 @@ namespace PROdiction
             values.Add((float) ChampionSuccessRatio.GetChampionSuccessRatio(((Obj_AI_Hero) input.Unit).ChampionName));
             
             values.Add(SpellList.GetDangerLevel(((Obj_AI_Hero) input.Unit).ChampionName, input.Slot)); // danger level
-            // values.AddRange(GetClosestWall(input.Unit.ServerPosition, HeroManager.Player, (Obj_AI_Hero) input.Unit));
-            
-            // Console.WriteLine("Angle: " + clicks2sAngle + " Len: " + clicks2sLen + " PerSecond: " + clicksPerSecond);
 
             values.Add(((Obj_AI_Hero) input.Unit).GetSpellSlot("summonerflash") != SpellSlot.Unknown
                 ? 1.0f
