@@ -10,6 +10,7 @@ namespace PROdiction
         public double GameTime;
         public Vector3[] Path;
         public bool IsDash;
+        public Vector3 Velocity;
     }
     public class Pathes
     {
@@ -34,7 +35,8 @@ namespace PROdiction
             {
                 Path = args.Path,
                 GameTime = Game.Time,
-                IsDash = args.IsDash
+                IsDash = args.IsDash,
+                Velocity = sender.Velocity
             });
 
             while (champArray.Count > 50)

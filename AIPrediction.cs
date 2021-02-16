@@ -53,6 +53,7 @@ namespace PROdiction
             target.Add((float) (Game.Time - @event.GameTime)); // time ago
             target.Add(targetHero.ServerPosition.X - lastElement.X);
             target.Add(targetHero.ServerPosition.Y - lastElement.Y);
+            target.Add(SpeedFromVelocity(@event.Velocity));
         }
         
         public float GetDelay()
@@ -68,7 +69,7 @@ namespace PROdiction
             values.Add(ObjectManager.Player.Direction.X);
             values.Add(ObjectManager.Player.Direction.Y);
             values.Add(input.Unit.Direction.X);
-            values.Add(input.Unit.Direction.X);
+            values.Add(input.Unit.Direction.Y);
             values.Add(delay); // delay
             values.Add(input.Unit.MoveSpeed);
             values.Add(SpeedFromVelocity(input.Unit.Velocity)); // speed
@@ -99,6 +100,7 @@ namespace PROdiction
 
             for (var i = 0; i < 10 - amountOfPaths; i++)
             {
+                values.Add(0.0f);
                 values.Add(0.0f);
                 values.Add(0.0f);
                 values.Add(0.0f);
